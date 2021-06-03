@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Usage: ./lazypdf [PROJECT_DIR]
+# project directory should contain c source files eg. <source>.c
+# also corresponding png file <source>.png for it to insert program output image
+
+set -e
+set -o pipefail
+
+usage() {
+    echo 'Usage: ./lazypdf [PROJECT_DIR] -o [PDF]
+    project directory should contain c source files eg. <source>.c
+    also corresponding png file <source>.png for it to insert program output image'
+}
+
+
+if [[ $# -le 0 ]]; then
+    PROJECT_DIR="$PWD"
+fi
+
+if [[ ! -z "$1" ]]; then
+    PROJECT_DIR="$1"
+else
+    usage
+    exit 1
+fi
+
+
+program_files=$(find "${PROJECT_DIR}" -maxdepth 1 -iregex '.*\.\(c\|cpp\)' | sort)
+if [[ -z "${program_files}" ]]; then
+    echo "(error) no source files found"
+    exit 1
+fi
+
+FILE_PDF="${PROJECT_DIR}/program.pdf"
+FILE_MARKDOWN="./outfile.md"
+if [[ -f $FILE_MARKDOWN ]]; then
+    rm $FILE_MARKDOWN
+    touch $FILE_MARKDOWN
+fi
+
+
+get_png_section_f_file() {
+    _source_file="${1%.*}" 	
+    if [[ -f "$_source_file".png ]]; then
+        printf "![]($_source_file.png)\n" >> "$2"
+        return 0
+    fi
+    return 1
+}
+
+metadata_inside_comments=""
+line_from_where_the_code_starts=0
+get_metadata_inside_comment() {
+    local done_w_first_comment="false"
+    local visted_first_bracket="false"
+    local visted_second_bracket="false"
+    while IFS= read -r line; do
+        if [[ $visted_first_bracket  == "true" && $visted_second_bracket == "false" ]]; then
+            metadata_inside_comments+="$line\n"
+            line_from_where_the_code_starts=$((line_from_where_the_code_starts+1))
+        fi
+        
+        if [[ "${line:0:2}" == "/*"  && $done_w_first_comment == "false" ]]; then
+            visted_first_bracket="true"
+        elif [[ "${line:0:2}" == "*/" ]]; then
+            visted_second_bracket="true"
+            done_w_first_comment="true"
+        fi
+    done < $1
+}
+
+get_field_value() {
+    echo "$1" | awk -F  "@" "{print \$$2}" | cut -d ':' -f 2
+}
+
+declare -A metadata_map
+create_metadata_map() {
+    get_metadata_inside_comment "$1"
+    metadata_inside_comments="${metadata_inside_comments::-4}"
+    metadata_map["title"]=$(get_field_value "${metadata_inside_comments}" 2)
+    metadata_map["input"]=$(get_field_value "${metadata_inside_comments}" 3)
+    metadata_map["output"]=$(get_field_value "${metadata_inside_comments}" 4)
+}
+
+get_source_code_from_file() {
+    line_from_where_the_code_starts=$((line_from_where_the_code_starts + 3))
+    local source_code=$(sed -n ''"$line_from_where_the_code_starts"',$p' "$1")
+    echo "${source_code}"
+}
+
+get_formatted_title() {
+    markdown_newline="----"
+    title_padding_begin="<p style='text-align: justify;'>\n"
+    title_padding_begin+="## **"
+    title_padding_end+="**"
+    title_padding_end+="\n</p>\n"
+
+    local section_title
+    title=${metadata_map["title"]:2}
+    if [[ ! -z "${title}" ]]; then
+        section_title="${title_padding_begin}"
+        section_title+=$(printf "${title}" | tr -d '\n' | sed 's/^ *//' | sed 's/[ ]\+/ /g')
+        section_title+="${title_padding_end}"
+    fi
+    echo -e "${section_title}"
+}
+
+get_formatted_input_ouput() {
+    local section_field
+    _field=${metadata_map["$1"]}
+    if [[ ! -z "${_field}" ]]; then
+        _field_padding_begin="### _$1_\n"
+        _field_padding_end="\n"
+        section_field+="${_field_padding_begin}"
+        section_field+=$(printf "${_field}" | sed -e 's/^/\t/')
+        section_field+="${_field_padding_end}"
+        echo -e "${section_field}"
+    fi
+}
+
+get_formatted_source_code() {
+    # HACK(madflash): space in the end, becz it wasn't inserting newline char, now it does idk why ?
+    source_code_padding_begin=$(printf '```c\n ')
+    source_code_padding_end=$(printf '\n```\n')
+    source_code=$(get_source_code_from_file "$1")
+    section_source_code+="${source_code_padding_begin}"
+    section_source_code+="${source_code}"
+    section_source_code+="${source_code_padding_end}"
+    echo "${section_source_code}"
+}
+
+create_markdown_w_source() {
+    get_metadata_for_markdown() {
+        (
+            create_metadata_map "$1"
+            get_formatted_title
+            get_formatted_input_ouput "input"
+            get_formatted_input_ouput "output"
+            echo "${markdown_newline}"
+            get_formatted_source_code "$1"
+        ) >> "$2"
+    } 
+    get_metadata_for_markdown "$1" "$2"
+    printf '\n' >> "$2"
+    get_png_section_f_file "$1" "$2" \
+        || (echo "(error) code output image (png) for $1 not found"; exit 1)
+    printf "\n\n" >> "$2"
+}
+
+
+main() {
+    for source_file in ${program_files}; do
+        create_markdown_w_source "$source_file" "$FILE_MARKDOWN"
+    done
+
+    pandoc "$FILE_MARKDOWN" -o "$FILE_PDF" && echo "(done)" || echo "(failed)"
+
+}
+
+main
