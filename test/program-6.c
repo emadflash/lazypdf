@@ -1,6 +1,6 @@
 /*
 @title:
-    Write a program to draw the following figure:
+    draw the following figure:
 @input:
     None
 @output:

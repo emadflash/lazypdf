@@ -1,6 +1,6 @@
 /*
 @title:
-    WAP to print the Fibonacci series up to n term.
+    print the Fibonacci series up to n term.
 @input:
     9
 @output:

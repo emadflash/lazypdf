@@ -1,6 +1,6 @@
 /*
 @title:
-    WAP to take input of 3digit number and check whether it is an Armstrong number
+    Take input of 3 digit number and check whether it is an Armstrong number
     and Palindrome number or not.
 @input:
     13

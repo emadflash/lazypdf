@@ -1,6 +1,6 @@
 /*
 @title:
-    WAP to check whether the entered number is prime or not.
+    check whether the entered number is prime or not.
 @input:
     69
 @output:
