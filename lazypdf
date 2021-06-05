@@ -13,7 +13,7 @@ usage() {
 }
 
 
-if [[ $# -le 0 ]]; then
+if [[ $# -eq 0 ]]; then
     PROJECT_DIR="$PWD"
 fi
 
