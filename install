@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+PROJECT="lazypdf"
+INSTALL_DIR="${HOME}/.local/bin/"
+
+printf "Installing ${PROJECT} in ${INSTALL_DIR}\n"
+
+if [[ :$PATH: != *:"${INSTALL_DIR}":* ]]; then
+    printf "(error) ${INSTALL_DIR} is not in \$PATH; update your \$PATH variable\n"
+    exit 1
+fi
+
+cp ./lazypdf "${INSTALL_DIR}"
+if [[ "$?" -ne 0 ]]; then
+    printf "(error) cp ./lazypdf ${INSTALL_DIR}\n"
+    exit 1
+fi
+
+chmod +x "${INSTALL_DIR}/lazypdf"
+printf "(done)\n"
