@@ -3,21 +3,34 @@
 set -e
 set -o pipefail
 
-PROJECT="lazypdf"
+declare -a files_to_put=(
+    ./lazypdf
+    ./multiple
+)
+
 INSTALL_DIR="${HOME}/.local/bin/"
 
-printf "Installing ${PROJECT} in ${INSTALL_DIR}\n"
+mark_executable() {
+    chmod 744 "$1" || (
+        printf "error: chmod 744 $1\n"
+        exit 1
+    )
+}
+
+put() {
+    cp "$1" "${INSTALL_DIR}" || (
+        printf "error: cp $1 ${INSTALL_DIR}\n"
+        exit 1
+    )
+}
 
 if [[ :$PATH: != *:"${INSTALL_DIR}":* ]]; then
-    printf "(error) ${INSTALL_DIR} is not in \$PATH; update your \$PATH variable\n"
+    printf "error: ${INSTALL_DIR} is not in \$PATH; update your \$PATH variable\n"
     exit 1
 fi
 
-cp ./lazypdf "${INSTALL_DIR}"
-if [[ "$?" -ne 0 ]]; then
-    printf "(error) cp ./lazypdf ${INSTALL_DIR}\n"
-    exit 1
-fi
-
-chmod +x "${INSTALL_DIR}/lazypdf"
-printf "(done)\n"
+for file in "${files_to_put[@]}"; do
+    printf "Put ${file} in ${INSTALL_DIR}\n"
+    put "${file}"
+    mark_executable "${INSTALL_DIR}/${file}"
+done

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+usage() {
+    echo 'Usage: ./multiple [CSV_FILE]'
+}
+
+if [[ "$#" -ne 1 ]]; then
+    usage
+    exit 1
+fi
+
+FILE_PDF="mainPdf.pdf"
+COMPOSE_MAIN_MARKDOWN="mainMarkdown.md"
+CSV_FILE="$1"
+
+if [[ ! -f "${CSV_FILE}" ]]; then
+    echo "error: ${CSV_FILE} file not found"
+    usage
+    exit 1
+fi
+
+if [[ -f "${COMPOSE_MAIN_MARKDOWN}" ]]; then
+    rm -rf "${COMPOSE_MAIN_MARKDOWN}"
+fi
+
+touch "${COMPOSE_MAIN_MARKDOWN}"
+
+update_main_markdown() {
+    lazypdf -d "$1" || printf "%s" "error: $1"
+    cat "$1/lazyMarkdown.md" >> "${COMPOSE_MAIN_MARKDOWN}"
+}
+
+insert_dir_project_name() {
+    printf "# " >> "$2"
+    printf "$1" >> "$2"
+    printf "\n" >> "$2"
+}
+
+main() {
+    while IFS= read -r line; do
+        IFS=','
+        read -ra ADDR <<< "$line"
+
+        insert_dir_project_name "${ADDR[1]}" "${COMPOSE_MAIN_MARKDOWN}"
+        update_main_markdown "${ADDR[0]}"
+    done < "$1"
+}
+
+main "${CSV_FILE}"

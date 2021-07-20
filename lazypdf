@@ -14,20 +14,31 @@ usage() {
     also corresponding png file <source>.png for it to insert program output image
 
     options:
-        -o    specify output pdf file' 
+        -d    dir
+        -o    specify output pdf file
+        -c    don"t complain about image'
 }
 
 PROJECT_DIR="${PWD}"
 FILE_PDF="${PROJECT_DIR}/lazyPdf.pdf"
 FILE_MARKDOWN="${PROJECT_DIR}/lazyMarkdown.md"
+DONT_COMPLAIN_ABOUT_IMAGE="false"
 
-while getopts ":ho" opt; do
+while getopts ":hocd" opt; do
   case ${opt} in
     h ) usage
         exit 0
       ;;
     o ) shift
         FILE_PDF="$1"
+      ;;
+    c ) shift
+        DONT_COMPLAIN_ABOUT_IMAGE="true"
+      ;;
+    d ) shift
+        PROJECT_DIR="$1"
+        FILE_MARKDOWN="${PROJECT_DIR}/lazyMarkdown.md"
+        FILE_PDF="${PROJECT_DIR}/lazyPdf.pdf"
       ;;
     \? ) echo "Invalid Option: -$OPTARG" 1>&2
          usage
@@ -88,8 +99,7 @@ create_metadata_map() {
     get_metadata_inside_comment "$1"
     metadata_inside_comments="${metadata_inside_comments::-4}"
     metadata_map["title"]=$(get_field_value "${metadata_inside_comments}" 2)
-    metadata_map["input"]=$(get_field_value "${metadata_inside_comments}" 3)
-    metadata_map["output"]=$(get_field_value "${metadata_inside_comments}" 4)
+    metadata_map["brief"]=$(echo "${metadata_inside_comments}"  | cut -d: -f 3-) # HACK(madflash) 
 }
 
 get_source_code_from_file() {
@@ -99,11 +109,8 @@ get_source_code_from_file() {
 }
 
 get_formatted_title() {
-    markdown_newline="----"
-    title_padding_begin="<p style='text-align: justify;'>\n"
-    title_padding_begin+="## **"
-    title_padding_end+="**"
-    title_padding_end+="\n</p>\n"
+    title_padding_begin=">"
+    title_padding_end+=""
 
     local section_title
     title=${metadata_map["title"]:2}
@@ -119,7 +126,7 @@ get_formatted_input_ouput() {
     local section_field
     _field=${metadata_map["$1"]}
     if [[ ! -z "${_field}" ]]; then
-        _field_padding_begin="### _$1_\n"
+        _field_padding_begin="##### _$1_\n"
         _field_padding_end="\n"
         section_field+="${_field_padding_begin}"
         section_field+=$(printf "${_field}" | sed -e 's/^/\t/')
@@ -144,17 +151,20 @@ create_markdown_w_source() {
         (
             create_metadata_map "$1"
             get_formatted_title
-            get_formatted_input_ouput "input"
-            get_formatted_input_ouput "output"
+            get_formatted_input_ouput "brief"
             echo "${markdown_newline}"
             get_formatted_source_code "$1"
         ) >> "$2"
     } 
     get_metadata_for_markdown "$1" "$2"
     printf '\n' >> "$2"
-    get_png_section_f_file "$1" "$2" \
-        || (echo "(error) code output image (png) for $1 not found"; exit 1)
+
+    if [[ $DONT_COMPLAIN_ABOUT_IMAGE == "false" ]]; then
+        get_png_section_f_file "$1" "$2" \
+            || (echo "(error) code output image (png) for $1 not found"; exit 1)
+    fi
     printf "\n\n" >> "$2"
+    printf "<br/><br/>\n" >> "$2"
 }
 
 
@@ -162,9 +172,6 @@ main() {
     for source_file in ${program_files}; do
         create_markdown_w_source "$source_file" "$FILE_MARKDOWN"
     done
-
-    pandoc "$FILE_MARKDOWN" -o "$FILE_PDF" && echo "(done)" || echo "(failed)"
-
 }
 
 main
