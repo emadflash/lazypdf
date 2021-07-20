@@ -1,6 +1,3 @@
-# lazypdf
-generates pdf from c/cpp source files
-
 ### ./lazypdf Usage
 ```
 Usage: ./lazypdf [options] [argument ..]
@@ -9,5 +6,7 @@ Usage: ./lazypdf [options] [argument ..]
     also corresponding png file <source>.png for it to insert program output image
 
     options:
+        -d    dir
         -o    specify output pdf file
+        -c    don"t complain about image'
 ```
